@@ -1,0 +1,144 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime
+import csv
+
+ARCHIVO = "ganancias_del_local.csv"
+DIAS_VALIDOS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+class Ventas(tk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.pack(fill="both", expand=True)
+
+        # Variables
+        self.var_producto = tk.StringVar()
+        self.var_cantidad = tk.StringVar()
+        self.var_costo_unitario = tk.StringVar()
+        self.var_porcentaje_ganancia = tk.StringVar()
+        self.var_dia_semana = tk.StringVar()
+        self.mensaje_final = tk.StringVar()
+
+        self.widgets()
+
+    def widgets(self):
+        # Título y fondo
+        frame1 = tk.Frame(self, bg="#84e46c")
+        frame1.place(x=0, y=0, width=1100, height=100)
+
+        titulo = tk.Label(self, text="VENTAS", bg="#2cf12c", font=("Arial", 24, "bold"))
+        titulo.place(x=5, y=0, width=1090, height=90)
+
+        # Entradas
+        tk.Label(self, text="Producto vendido").place(x=100, y=120)
+        tk.Entry(self, textvariable=self.var_producto).place(x=300, y=120, width=300)
+
+        tk.Label(self, text="Cantidad").place(x=100, y=160)
+        tk.Entry(self, textvariable=self.var_cantidad).place(x=300, y=160, width=300)
+
+        tk.Label(self, text="Costo por unidad ($)").place(x=100, y=200)
+        tk.Entry(self, textvariable=self.var_costo_unitario).place(x=300, y=200, width=300)
+
+        tk.Label(self, text="Porcentaje de ganancia (%)").place(x=100, y=240)
+        tk.Entry(self, textvariable=self.var_porcentaje_ganancia).place(x=300, y=240, width=300)
+
+        # Combobox para día de la semana
+        tk.Label(self, text="Día de la semana").place(x=100, y=280)
+        self.combo_dia = ttk.Combobox(self, values=DIAS_VALIDOS, textvariable=self.var_dia_semana, state="readonly")
+        self.combo_dia.place(x=300, y=280, width=300)
+
+        # Establecer día actual como valor por defecto
+        dia_actual = datetime.now().strftime("%A").lower()
+        equivalencias = {
+            "monday": "lunes", "tuesday": "martes", "wednesday": "miércoles",
+            "thursday": "jueves", "friday": "viernes", "saturday": "sábado", "sunday": "domingo"
+        }
+        self.combo_dia.set(equivalencias.get(dia_actual, "lunes"))
+
+        # Botones
+        tk.Button(self, text="Registrar venta", command=self.registrar_venta, bg="lightgreen").place(x=250, y=330, width=200, height=40)
+        tk.Button(self, text="Ver registro", command=self.mostrar_registro, bg="lightblue").place(x=250, y=380, width=200, height=40)
+
+        # Mensaje final
+        tk.Label(self, textvariable=self.mensaje_final, fg="blue", font=("Arial", 10), wraplength=600, justify="center").place(x=100, y=440)
+
+    def registrar_venta(self):
+        try:
+            prod_val = self.var_producto.get()
+            cant_val = int(self.var_cantidad.get())
+            costo_val = float(self.var_costo_unitario.get())
+            ganancia_val = float(self.var_porcentaje_ganancia.get())
+            dia_val = self.var_dia_semana.get().lower()
+
+            if dia_val not in DIAS_VALIDOS:
+                messagebox.showerror("Error", "Día de la semana inválido. Debe ser uno de: " + ", ".join(DIAS_VALIDOS))
+                return
+
+            porcentaje = ganancia_val / 100
+            ganancia_individual = costo_val * porcentaje
+            precio_venta = costo_val + ganancia_individual
+            total = precio_venta * cant_val
+            ganancia_total = ganancia_individual * cant_val
+            fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            with open(ARCHIVO, mode="a", newline="") as archivo:
+                escritor = csv.writer(archivo)
+                escritor.writerow([
+                    fecha, dia_val, prod_val, cant_val,
+                    f"${costo_val:.2f}", f"${precio_venta:.2f}",
+                    f"${total:.2f}", f"${ganancia_total:.2f}"
+                ])
+
+            self.mensaje_final.set(f"Venta registrada:\n{prod_val} x{cant_val} = ${total:.2f}\n"
+                                   f"Ganancia total: ${ganancia_total:.2f}")
+
+            # Limpiar entradas
+            self.var_producto.set("")
+            self.var_cantidad.set("")
+            self.var_costo_unitario.set("")
+            self.var_porcentaje_ganancia.set("")
+            self.combo_dia.set("")  # resetear el combobox
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Ingrese valores válidos.\n{e}")
+
+    def mostrar_registro(self):
+        try:
+            with open(ARCHIVO, mode="r") as archivo:
+                reader = csv.reader(archivo)
+                registros = [f" | ".join(fila) for fila in reader]
+
+            if not registros:
+                messagebox.showinfo("Registro vacío", "Aún no hay ventas registradas.")
+                return
+
+            ventana = tk.Toplevel(self)
+            ventana.title("Registro de Ventas")
+            ventana.geometry("800x400")
+
+            texto = tk.Text(ventana, wrap="word")
+            texto.pack(expand=True, fill="both")
+
+            for linea in registros:
+                texto.insert("end", linea + "\n")
+
+        except FileNotFoundError:
+            messagebox.showinfo("Sin archivo", "No se encontró el archivo de ventas.")
+
+# Ejecución directa
+if __name__ == "__main__":
+    
+    root = tk.Tk()
+     # Opción 1: permitir que el usuario la agrande manualmente
+    root.resizable(True, True)
+    
+    # Opción 2: abrir la ventana maximizada automáticamente
+    root.state('zoomed')  # Para Windows
+    # root.attributes('-zoomed', True)  # Alternativa para Linux/Mac
+
+    app = Ventas(root)
+    root.mainloop()
+    root.title("Sistema de Ventas")
+    root.geometry("800x600")
+    app = Ventas(root)
+    root.mainloop()
